@@ -1,0 +1,14 @@
+streamlit==1.35.0
+pandas==2.0.3
+openai==1.30.4
+sentence-transformers==3.0.0
+chromadb==0.5.0
+langchain==0.2.1
+langchain-chroma==0.1.1
+langchain-community==0.2.1
+langchain-core==0.2.1
+langchain-text-splitters==0.2.0
+langcodes==3.4.0
+langsmith==0.1.63
+language_data==1.2.0
+launchpadlib==1.10.16
