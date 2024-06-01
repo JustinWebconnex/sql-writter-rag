@@ -12,3 +12,7 @@ langcodes==3.4.0
 langsmith==0.1.63
 language_data==1.2.0
 launchpadlib==1.10.16
+pytesseract
+beautifulsoup4
+tiktoken
+lxml
