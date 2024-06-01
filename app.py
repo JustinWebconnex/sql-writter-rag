@@ -56,7 +56,7 @@ def load_documents_from_csv(file_path):
     return documents
 
 # Load and clean documents
-file_path = "all-sources-plus-sql-helper-24k"
+file_path = "all-sources-plus-sql-helper-24k.csv"
 documents = load_documents_from_csv(file_path)
 
 
