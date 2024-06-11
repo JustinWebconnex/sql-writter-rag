@@ -16,3 +16,6 @@ pytesseract
 beautifulsoup4
 tiktoken
 lxml
+
+
+

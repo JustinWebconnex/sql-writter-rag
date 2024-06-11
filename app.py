@@ -1,4 +1,5 @@
 # import 30 gb at beggining
+import os
 import pandas as pd
 import re
 from langchain.embeddings.sentence_transformer import SentenceTransformerEmbeddings
@@ -12,8 +13,10 @@ import streamlit as st
 # load the document and split it into chunks
 # file_path = "/content/sql-writer-finetune - Sheet1.csv"
 LLM_OPENAI_GPT35 = "gpt-3.5-turbo"
-
-
+# Define the file path for the Chroma database
+CHROMA_DB_DIR = "./chroma_db"
+# Load and clean documents
+file_path = "/content/sql-writer-finetune - Sheet1.csv"
 class Document:
     def __init__(self, page_content, metadata):
         self.page_content = page_content
@@ -55,8 +58,6 @@ def load_documents_from_csv(file_path):
 
     return documents
 
-# Load and clean documents
-file_path = "all-sources-plus-sql-helper-24k.csv"
 documents = load_documents_from_csv(file_path)
 
 
@@ -64,11 +65,22 @@ documents = load_documents_from_csv(file_path)
 embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
 
 # load it into Chroma
-db = Chroma.from_documents(documents, embedding_function)
+# db = Chroma.from_documents(documents, embedding_function)
+# Load or create the Chroma database
+if os.path.exists(CHROMA_DB_DIR) and os.listdir(CHROMA_DB_DIR):
+    db = Chroma(persist_directory=CHROMA_DB_DIR, embedding_function=embedding_function)
+else:
+    db = Chroma.from_documents(documents, embedding_function, persist_directory=CHROMA_DB_DIR)
+    db.persist()
 
 # RAG config
 llm = ChatOpenAI(model_name=LLM_OPENAI_GPT35, temperature=0.)
 retriever = db.as_retriever(search_kwargs={"k":4})
+def format_document(document):
+    # Format the page content and metadata for better readability
+    formatted_content = f"**Content:**\n```\n{document.page_content}\n```"
+    formatted_metadata = f"**Metadata:** {document.metadata}"
+    return f"{formatted_content}\n\n{formatted_metadata}"
 
 def sql_query_assistant():
     QUERY_PROMPT_TEMPLATE = """\
@@ -238,9 +250,10 @@ def sql_query_assistant():
         try:
             response = qa_chain({"query": query})
             st.markdown("**Result:**")
-            st.code(response['result'], language="sql")
+            st.markdown(response['result'])
             st.markdown("**Sources:**")
-            st.markdown(response['source_documents'])
+            for doc in response['source_documents']:
+                st.markdown(format_document(doc))
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
@@ -248,9 +261,9 @@ def python_query_assistant():
     
     QUERY_PROMPT_TEMPLATE = """\
     Human:
-    You are a Webconnex Oracle, you know everything about the business, confluence github and more, you will respond any question that the user have regarding to the business using the context provided below
+    You are a Webconnex Oracle, you know everything about the business, confluence github and more,>
 
-    Look for examples in the {context} to have more information to answer the question. If you do not know how to proceed with a specific part, state that you do not know how to formulate it, but continue the query as far as possible. For example, say that a specific part is missing if you do not have the context to formulate it.
+    Look for examples in the {context} to have more information to answer the question. If you do n>
 
     {context}
     Question: {question}
@@ -268,7 +281,7 @@ def python_query_assistant():
     # Get user input
     query = st.text_area("Enter your company question:")
 
-    # Create a button to submit the query
+    # Create a button to submit the 
     if st.button("Submit question"):
         try:
             response = qa_chain({"query": query})
@@ -278,7 +291,6 @@ def python_query_assistant():
             st.markdown(response['source_documents'])
         except Exception as e:
             st.error(f"An error occurred: {e}")
-
 
 def main():
     st.set_page_config(page_title="AI Assistant", layout="wide")
@@ -300,7 +312,7 @@ def main():
         sql_query_assistant()
     with tabs[1]:
         python_query_assistant()
-
+    
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown(
         "<div style='text-align: center; padding: 10px;'>"
