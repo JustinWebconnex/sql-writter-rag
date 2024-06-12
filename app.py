@@ -252,8 +252,9 @@ def sql_query_assistant():
             st.markdown("**Result:**")
             st.markdown(response['result'])
             st.markdown("**Sources:**")
-            for doc in response['source_documents']:
-                st.markdown(format_document(doc))
+            for i, doc in enumerate(response['source_documents']):
+                with st.expander(f"Source Document {i + 1}"):
+                    st.markdown(format_document(doc))
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
@@ -288,7 +289,9 @@ def python_query_assistant():
             st.markdown("**Result:**")
             st.markdown(response['result'])
             st.markdown("**Source Documents:**")
-            st.markdown(response['source_documents'])
+            for i, doc in enumerate(response['source_documents']):
+                with st.expander(f"Source Document {i + 1}"):
+                    st.markdown(format_document(doc))
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
