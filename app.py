@@ -2,7 +2,9 @@
 import os
 import pandas as pd
 import re
-from langchain.embeddings.sentence_transformer import SentenceTransformerEmbeddings
+from langchain.embeddings.sentence_transformer import (
+    SentenceTransformerEmbeddings
+)
 from langchain.chat_models import ChatOpenAI
 from langchain.vectorstores import Chroma
 from langchain.chains import RetrievalQA
@@ -17,75 +19,96 @@ LLM_OPENAI_GPT35 = "gpt-3.5-turbo"
 CHROMA_DB_DIR = "./chroma_db"
 # Load and clean documents
 file_path = "/content/sql-writer-finetune - Sheet1.csv"
+
+
 class Document:
     def __init__(self, page_content, metadata):
         self.page_content = page_content
         self.metadata = metadata
 
     def __repr__(self):
-        return f"Document(page_content={repr(self.page_content)}, metadata={self.metadata})"
+        return (
+            f"Document(page_content={repr(self.page_content)}, "
+            f"metadata={self.metadata})"
+        )
+
 
 def clean_metadata_string(metadata_str):
     # Remove unwanted characters and keep only key-value pairs
-    cleaned_metadata_str = re.sub(r'[\'\"\[\]\{\}]', '', metadata_str)
+    cleaned_metadata_str = re.sub(r"[\'\"\[\]\{\}]", "", metadata_str)
     # Split the string into key-value pairs
-    metadata_items = cleaned_metadata_str.split(',')
+    metadata_items = cleaned_metadata_str.split(",")
     # Create a dictionary from key-value pairs
     metadata_dict = {}
     for item in metadata_items:
-        if ':' in item:
-            key, value = item.split(':', 1)
+        if ":" in item:
+            key, value = item.split(":", 1)
             metadata_dict[key.strip()] = value.strip()
     return metadata_dict
 
+
 def clean_page_content(content):
     # Remove unwanted characters and multiple spaces
-    content = re.sub(r'\s+', ' ', content)
-    content = re.sub(r'[\'\"]', '', content)
+    content = re.sub(r"\s+", " ", content)
+    content = re.sub(r"[\'\"]", "", content)
     return content.strip()
+
 
 def load_documents_from_csv(file_path):
     df = pd.read_csv(file_path)
 
-    df['page_content'] = df['page_content'].fillna('No Content')
-    df['metadata'] = df['metadata'].fillna('No metadata').astype(str)
+    df["page_content"] = df["page_content"].fillna("No Content")
+    df["metadata"] = df["metadata"].fillna("No metadata").astype(str)
 
     documents = []
     for index, row in df.iterrows():
-        page_content = clean_page_content(row['page_content'])
-        cleaned_metadata_dict = clean_metadata_string(row['metadata'])
-        documents.append(Document(page_content=page_content, metadata=cleaned_metadata_dict))
+        page_content = clean_page_content(row["page_content"])
+        cleaned_metadata_dict = clean_metadata_string(row["metadata"])
+        documents.append(
+            Document(page_content=page_content, metadata=cleaned_metadata_dict)
+        )
 
     return documents
+
 
 documents = load_documents_from_csv(file_path)
 
 
-# create the open-source embedding function (Hugging face model whule we get OpenAI key)
-embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+# create the open-source embedding function
+# (Hugging face model whule we get OpenAI key)
+embedding_function = SentenceTransformerEmbeddings(
+    model_name="all-MiniLM-L6-v2")
 
 # load it into Chroma
 # db = Chroma.from_documents(documents, embedding_function)
 # Load or create the Chroma database
 if os.path.exists(CHROMA_DB_DIR) and os.listdir(CHROMA_DB_DIR):
-    db = Chroma(persist_directory=CHROMA_DB_DIR, embedding_function=embedding_function)
+    db = Chroma(
+        persist_directory=CHROMA_DB_DIR, embedding_function=embedding_function)
 else:
-    db = Chroma.from_documents(documents, embedding_function, persist_directory=CHROMA_DB_DIR)
+    db = Chroma.from_documents(
+        documents, embedding_function, persist_directory=CHROMA_DB_DIR
+    )
     db.persist()
 
 # RAG config
-llm = ChatOpenAI(model_name=LLM_OPENAI_GPT35, temperature=0.)
-retriever = db.as_retriever(search_kwargs={"k":4})
+llm = ChatOpenAI(model_name=LLM_OPENAI_GPT35, temperature=0.0)
+retriever = db.as_retriever(search_kwargs={"k": 4})
+
+
 def format_document(document):
     # Format the page content and metadata for better readability
     formatted_content = f"**Content:**\n```\n{document.page_content}\n```"
     formatted_metadata = f"**Metadata:** {document.metadata}"
     return f"{formatted_content}\n\n{formatted_metadata}"
 
+
 def sql_query_assistant():
     QUERY_PROMPT_TEMPLATE = """\
     Human:
-    You are an expert SQL writer. Create a SQL query based on the provided context. Only use the following tables to create the query:
+    You are an expert SQL writer.
+    Create a SQL query based on the provided context.
+    Only use the following tables to create the query:
     - wbx_data_dbt.dim_account(
         id INTEGER,
         name CHARACTER VARYING,
@@ -227,7 +250,13 @@ def sql_query_assistant():
         date_created TIMESTAMP WITHOUT TIME ZONE
     );
 
-    Look for examples in the {context} on how to use these tables and structure the query. If you do not know how to proceed with a specific part, state that you do not know how to formulate it, but continue the query as far as possible. For example, say that a WHERE clause is missing if you do not have the context to formulate it.
+    Look for examples in the {context}
+    on how to use these tables and structure the query.
+    If you do not know how to proceed with a specific part,
+    state that you do not know how to formulate it,
+    but continue the query as far as possible. For example,
+    say that a WHERE clause is missing if
+    you do not have the context to formulate it.
 
     {context}
     Question: {question}
@@ -238,7 +267,9 @@ def sql_query_assistant():
         llm=llm,
         retriever=retriever,
         return_source_documents=True,
-        chain_type_kwargs={"prompt": PromptTemplate.from_template(QUERY_PROMPT_TEMPLATE)}
+        chain_type_kwargs={
+            "prompt": PromptTemplate.from_template(QUERY_PROMPT_TEMPLATE)
+        },
     )
     st.title("SQL Query Helper")
 
@@ -250,21 +281,24 @@ def sql_query_assistant():
         try:
             response = qa_chain({"query": query})
             st.markdown("**Result:**")
-            st.markdown(response['result'])
+            st.markdown(response["result"])
             st.markdown("**Sources:**")
-            for i, doc in enumerate(response['source_documents']):
+            for i, doc in enumerate(response["source_documents"]):
                 with st.expander(f"Source Document {i + 1}"):
                     st.markdown(format_document(doc))
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
+
 def python_query_assistant():
-    
+
     QUERY_PROMPT_TEMPLATE = """\
     Human:
-    You are a Webconnex Oracle, you know everything about the business, confluence github and more,>
+    You are a Webconnex Oracle, you know everything about the business,
+    confluence github and more,>
 
-    Look for examples in the {context} to have more information to answer the question. If you do n>
+    Look for examples in the {context} to have more information to answer the
+    question. If you do now how to answer say that but formulate as far
 
     {context}
     Question: {question}
@@ -275,30 +309,34 @@ def python_query_assistant():
         llm=llm,
         retriever=retriever,
         return_source_documents=True,
-        chain_type_kwargs={"prompt": PromptTemplate.from_template(QUERY_PROMPT_TEMPLATE)}
+        chain_type_kwargs={
+            "prompt": PromptTemplate.from_template(QUERY_PROMPT_TEMPLATE)
+        },
     )
     st.title("Wbx Oracle Assistant")
 
     # Get user input
     query = st.text_area("Enter your company question:")
 
-    # Create a button to submit the 
+    # Create a button to submit the
     if st.button("Submit question"):
         try:
             response = qa_chain({"query": query})
             st.markdown("**Result:**")
-            st.markdown(response['result'])
+            st.markdown(response["result"])
             st.markdown("**Source Documents:**")
-            for i, doc in enumerate(response['source_documents']):
+            for i, doc in enumerate(response["source_documents"]):
                 with st.expander(f"Source Document {i + 1}"):
                     st.markdown(format_document(doc))
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
+
 def main():
     st.set_page_config(page_title="AI Assistant", layout="wide")
-    
-    st.markdown("""
+
+    st.markdown(
+        """
         <style>
         .reportview-container {
             background: #f0f2f6;
@@ -307,7 +345,9 @@ def main():
             background: #f0f2f6;
         }
         </style>
-        """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
     tabs = st.tabs(["SQL Query Helper", "Wbx Oracle Assistant"])
 
@@ -315,14 +355,15 @@ def main():
         sql_query_assistant()
     with tabs[1]:
         python_query_assistant()
-    
+
     st.markdown("<hr>", unsafe_allow_html=True)
     st.markdown(
         "<div style='text-align: center; padding: 10px;'>"
         "<small>Information is accurate as of May 21, 2024</small>"
         "</div>",
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
+
 
 if __name__ == "__main__":
     main()
